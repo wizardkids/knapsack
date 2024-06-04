@@ -31,7 +31,7 @@ VERSION = "0.1"
 
 @click.command(epilog='This cryptosystem can only encrypt files containing valid UTF-8. Use double-quotes ("...") if [FILE] or [MESSAGE] includes spaces. --file argument must be used if encrypting a [FILE], otherwise the filename will be interpreted as the [MESSAGE] to encrypt.\n\nIf a file or message is included, an encryption action is assumed, so there is no --encrypt argument.\n\nAll encrypted messages are stored in "encoded.json".\n\nPublic and private keys are stored with the encoded message. This practice is obviously insecure but this program is experimental. Alternatively, the keys could be removed from "encoded.json" and stored separately.\n\nEncryption takes precendence over decryption. This means that if a message AND --decrypt are found on the command line (in any order), the message will be encrypted but "encoded.json" will not be decrypted. If both a [FILE] and a [MESSAGE] are provided, the [FILE] takes precedence and the [MESSAGE] will not be encrypted.')
 # @click.option("-m", "--message", "msg", type=str, multiple=True, help='Message to encrypt')
-@click.argument("message", required=False)
+@click.argument("message", type=str, required=False)
 @click.option("-f", "--file", type=str, help='File to encrypt.')
 @click.option("-d", "--decrypt", is_flag=True, default=False, help='Decrypt previously encrypted message.')
 @click.option("-k", "--keys", is_flag=True, default=False, help="Print the keys.")
@@ -44,7 +44,7 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
     \f
     Parameters
     ----------
-    message : str -- flag for inclusion of a message to encrypt
+    message : str -- message to encrypt
     file : str -- filename containing text to encrypt
     decrypt : str -- flag to decrypt "encoded.json"
     keys : str -- flag to print public and private keys
@@ -55,9 +55,9 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
     None
     """
 
-    # print()
-    # ic(message, file, decrypt, keys, generate)
-    # print()
+    print()
+    ic(message, file, decrypt, keys, generate)
+    print()
 
     # The following prevents the 'Parameter declaration "message" is obscured by a declaration of the same name.' error.
     if message:
@@ -70,13 +70,7 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
         return
 
     if generate:
-        # fmt: ON
-        M = generate_keys()
-        print(f'Public key:\n{M.public_key}', sep='')
-        print(f'\nPrivate key:\ns: {M.s} \nq: {M.q}\nr: {M.r}', sep='')
-        # fmt: OFF
-
-        pass
+        generate_keys()
         return
 
     # If the --file argument was included, read the file into "msg".
@@ -89,16 +83,16 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
     # If there's a message, either typed on the command line or provided in a file,
     # encrypt it. If no message was provided by either mechanism, then the user must have provided the --decrypt flag to decrypt a file.
     if msg:
-        encryption_keys: MerkleHellmanKeys = generate_keys()
-        public_key: list[int] = encryption_keys.public_key
-        s: list[int] = encryption_keys.s
-        q: int = encryption_keys.q
-        r: int = encryption_keys.r
+        receivers_keys = get_receiver_keys("encrypting")
+        public_key: list[int] = receivers_keys['public_key']
+        s: list[int] = receivers_keys['s']
+        q: int = receivers_keys['q']
+        r: int = receivers_keys['r']
 
         encrypted_message: str = encrypt_msg(msg, public_key)
         print(encrypted_message)
 
-        write_coded(encrypted_message, encryption_keys)
+        write_coded(encrypted_message)
     else:
         # We get here if no message was provided. The assumption is that the user
         # wants to decrypt a file... if "encoded.json" exists!
@@ -109,9 +103,11 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
                 return None
 
             else:
-                encoded_msg, encryption_keys = read_encoded()
-                decrypted_msg: str = decrypt_msg(
-                    encoded_msg, encryption_keys.s, encryption_keys.q, encryption_keys.r)
+                # fmt: ON
+                encoded_msg: str = read_encoded_msg()
+                receivers_keys = get_receiver_keys("decrypting")
+                decrypted_msg: str = decrypt_msg(encoded_msg, receivers_keys['s'], receivers_keys['q'], receivers_keys['r'])
+                # fmt: OFF
                 print(f'DECRYPTED MESSAGE\n[blue]{decrypted_msg}[/]', sep="")
                 return
 
@@ -119,17 +115,32 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
             print("Error: No action was prescribed on the command line. See HELP.")
             return None
 
+def get_receiver_keys(action: str) -> dict:
+    print()
+    if action == "encrypting":
+        receiver_name: str = input("Who will receive this encrypted message? ").lower()
+    else:
+        receiver_name: str = input("Who is decrypting this message: ").lower()
+    filename = receiver_name + ".json"
+    try:
+        with open(filename, 'r') as f:
+            receivers_keys = json.load(f)
+    except FileNotFoundError:
+        print(f"\nYou do not have {receiver_name}'s public key,\nwhich is required for encryption.")
+        exit()
+    return receivers_keys
+
 
 # ==== KEY GENERATION ==========================================
 
 class MerkleHellmanKeys:
     def __init__(self, public_key, s, q, r) -> None:
         self.public_key = public_key
-        self.s = s
-        self.q = q
-        self.r = r
+        self.s: int = s
+        self.q: int = q
+        self.r: int = r
 
-def is_coprime(a, b):
+def is_coprime(a, b) -> bool:
     """
     This function determines whether or not two integers are coprime, meaning that there are no numbers that divide them both, other than 1. This function is used in generate_keys().
     """
@@ -170,9 +181,17 @@ def generate_keys() -> MerkleHellmanKeys:
 
     # Calculate the vector public_key = [b_1, b_2, ..., b_n], where each member of the [s] is multiplied by r and then divided (modulo) q
     # public_key is r * [s](i) % q
-    public_key = [(si * r) % q for si in s]
+    public_key: list[int] = [(si * r) % q for si in s]
 
-    return MerkleHellmanKeys(public_key, s, q, r)
+    user_keys: dict = {'public_key': public_key, "s": s, "q": q, "r": r}
+    print('\nThe name you enter will be the filename for the keys.', sep='')
+    filename: str = input("Whose keys are these: ").lower()
+    filename += ".json"
+    with open(filename, 'w') as f:
+        json.dump(user_keys, f)
+
+    # return MerkleHellmanKeys(public_key, s, q, r)
+    return
 
 # ==== END OF KEY GENERATION ===================================
 
@@ -188,9 +207,9 @@ def print_keys() -> None:
     # Read the "encoded.json" file and then parse the keys that are returned.
     encrypted_msg, encryption_keys = read_encoded()
     public_key = encryption_keys.public_key
-    s = encryption_keys.s
-    q = encryption_keys.q
-    r = encryption_keys.r
+    s: int = encryption_keys.s
+    q: int = encryption_keys.q
+    r: int = encryption_keys.r
 
     pk_list: list[str] = [str(x) for x in public_key]
     pk_str: str = ", ".join(pk_list)
@@ -202,7 +221,7 @@ def print_keys() -> None:
           s_str}\nq: {q}\nr: {r}', sep="")
 
 
-def write_coded(encrypted_message: str, encryption_keys) -> None:
+def write_coded(encrypted_message: str) -> None:
     """
     Save the encrypted message to the "encoded.json" file.
 
@@ -218,10 +237,10 @@ def write_coded(encrypted_message: str, encryption_keys) -> None:
 
     these_keys = {
         "encrypted_msg": encrypted_message,
-        "public_key": encryption_keys.public_key,
-        "s": encryption_keys.s,
-        "q": encryption_keys.q,
-        "r": encryption_keys.r
+        # "public_key": encryption_keys.public_key,
+        # "s": encryption_keys.s,
+        # "q": encryption_keys.q,
+        # "r": encryption_keys.r
     }
 
     # Write the data to a file in JSON format. "encoded.json" will be overwritten if it already exists.
@@ -231,12 +250,14 @@ def write_coded(encrypted_message: str, encryption_keys) -> None:
 
 def encrypt_msg(message: str, public_key: list[int]) -> str:
     """
-    Encrypt the message passed in on the command line as either a string of text or a file. Only the pubic key is used to encode the message. (decrypting the message requires the private key.)
+    Encrypt the message passed in on the command line as either a string of text or a file.
+
+    If Bob is the receiver, then we use Bob's public key to encode the message. For Bob to decrypting the message, he will require his private key, since his public key was used to encrypt the message.
 
     Parameters
     ----------
     message : str -- the string to encrypt
-    public_key : list[int] -- the public key
+    public_key : list[int] -- Bob's public key
 
     Returns
     -------
@@ -295,7 +316,9 @@ def read_file_to_encrypt(file: str) -> str:
 
 def decrypt_msg(encoded_msg: str, s: list[int], q: int, r: int) -> str:
     """
-    Decrypt the encrypted message using only the private key (s, q, and r). The public key was used to encode the message but is not used for decrypting.
+    Decrypt the encrypted message using only the private key (s, q, and r).
+
+    Bob's public key was used to encode the message, so Bob will need his private key (s, q, r) to decrypt the message.
 
     Parameters
     ----------
@@ -327,22 +350,26 @@ def decrypt_msg(encoded_msg: str, s: list[int], q: int, r: int) -> str:
     binary_list: list[str] = []
     this_binary: str = ""
 
-    for el in msg_list:
-        step = (el * r_inv) % q
-        while True:
-            # Find the largest number in [s] that is smaller than step.
-            second: int = max(filter(lambda x: x <= step, s))
-            # Find the position of "step" in [s].
-            index: int = s.index(second)
-            step -= second
-            indices.append(index)
-            if step == 0:
-                break
+    try:
+        for el in msg_list:
+            step = (el * r_inv) % q
+            while True:
+                # Find the largest number in [s] that is smaller than step.
+                second: int = max(filter(lambda x: x <= step, s))
+                # Find the position of "step" in [s].
+                index: int = s.index(second)
+                step -= second
+                indices.append(index)
+                if step == 0:
+                    break
 
-        # Create a binary string from [indices].
-        this_binary = create_binary_string(indices)
-        binary_list.append(this_binary)
-        indices.clear()
+            # Create a binary string from [indices].
+            this_binary = create_binary_string(indices)
+            binary_list.append(this_binary)
+            indices.clear()
+    except ValueError:
+        print("Access denied. Cannot decrypt with the provided key.")
+        exit()
 
     # Convert each element in [binary_vec] to an ASCII value and then to a letter.
     char_list: list[str] = []
@@ -374,7 +401,7 @@ def create_binary_string(indices) -> str:
         base_bin_list[i] = "1"
     return ''.join(base_bin_list)
 
-def read_encoded() -> tuple[str, MerkleHellmanKeys]:
+def read_encoded_msg() -> str:
     """
     Read the encrypted file ("encoded.json").
 
@@ -387,10 +414,10 @@ def read_encoded() -> tuple[str, MerkleHellmanKeys]:
         data = json.load(file)
 
     encrypted_msg: str = data["encrypted_msg"]
-    encryption_keys = MerkleHellmanKeys(
-        data["public_key"], data["s"], data["q"], data["r"])
+    # encryption_keys = MerkleHellmanKeys(
+    #     data["public_key"], data["s"], data["q"], data["r"])
 
-    return encrypted_msg, encryption_keys
+    return encrypted_msg
 
 # ==== UTILITY FUNCTIONS ====================================
 
