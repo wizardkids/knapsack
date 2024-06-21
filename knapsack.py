@@ -1,7 +1,9 @@
 """
-knapsack.py
-Richard E. Rawson
-2024-03-07
+    Filename: knapsack.py
+     Version: 0.21
+      Author: Richard E. Rawson
+        Date: 2024-03-07
+ Last update: 2024-06-21
 
 Building the Merkle-Hellman Cryptosystem involves three parts:
     -- Key Generation
@@ -26,7 +28,7 @@ import click
 from icecream import ic
 from rich import print
 
-VERSION = "0.2"
+VERSION = "0.21"
 
 
 @click.command(epilog='If [MESSAGE] or [PATH] is provided, encryption occurs by default (--encrypt is optional). If [MESSAGE] or [PATH] is absent, decryption occurs by default (--decrypt is optional). This cryptosystem can only encrypt text containing valid UTF-8. Use double-quotes ("...") if [PATH] or [MESSAGE] includes spaces.\n\nAll encrypted messages are stored in "encoded.json". Public and private keys are stored in a json file named after the user.\n\nEXAMPLE USAGE:\n\n   knapsack.py "The boats launch at midnight." --> encrypts the message\n\n   knapsack.py (with no arguments) --> decrypts "encoded.json"')
