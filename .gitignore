@@ -1,4 +1,6 @@
-*.pdf
 *.json
-scratch.py
+*.pdf
+*.pyc
 *.txt
+__init__.py
+scratch.py

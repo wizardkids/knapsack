@@ -11,7 +11,7 @@ Building the Merkle-Hellman Cryptosystem involves three parts:
 At a high-level, in the Merkle-Hellman Knapsack Cryptosystem, all participants
 go through key generation once to construct both a public key and a private
 key, linked together in some mathematical way. Public keys are made publicly
-available, whereas private keys are kept under lock and key (no pun intended).
+available, whereas private keys are kept under lock and key (pun intended).
 Usually, public keys will lead to some sort of encryption function, and private
 keys will lead to some sort of decryption function, and in many ways they act as
 inverses.
@@ -29,7 +29,7 @@ from rich import print
 VERSION = "0.2"
 
 
-@click.command(epilog='This cryptosystem can only encrypt text containing valid UTF-8. Use double-quotes ("...") if [PATH] or [MESSAGE] includes spaces.\n\nAll encrypted messages are stored in "encoded.json". Public and private keys are stored in a json file named after the user.\n\nEXAMPLE USAGE:\n\n   knapsack.py "The boats launch at midnight." --> encrypts the message\n\n   knapsack.py (with no arguments) --> decrypts "encoded.json"')
+@click.command(epilog='If [MESSAGE] or [PATH] is provided, encryption occurs by default (--encrypt is optional). If [MESSAGE] or [PATH] is absent, decryption occurs by default (--decrypt is optional). This cryptosystem can only encrypt text containing valid UTF-8. Use double-quotes ("...") if [PATH] or [MESSAGE] includes spaces.\n\nAll encrypted messages are stored in "encoded.json". Public and private keys are stored in a json file named after the user.\n\nEXAMPLE USAGE:\n\n   knapsack.py "The boats launch at midnight." --> encrypts the message\n\n   knapsack.py (with no arguments) --> decrypts "encoded.json"')
 # @click.option("-m", "--message", "msg", type=str, multiple=True, help='Message to encrypt')
 @click.argument("message", type=str, required=False)
 @click.option("-f", "--file", type=click.Path(exists=True), help='File to encrypt.')
@@ -93,12 +93,7 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
     else:
         # We get here if no message was provided. The assumption is that the user
         # wants to decrypt a file... if "encoded.json" exists!
-        if not Path("encoded.json").exists():
-            print(
-                'Error: The file "encoded.json" containing encrypted text was not found.')
-            return None
-
-        else:
+        if Path("encoded.json").exists():
             # fmt: ON
             encoded_msg: str = read_encoded_msg()
             receivers_keys = get_receiver_keys("decrypting")
@@ -106,6 +101,10 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
             # fmt: OFF
             print(f'DECRYPTED MESSAGE\n[blue]{decrypted_msg}[/]', sep="")
             return
+        else:
+            print(
+                'Error: The file "encoded.json" containing encrypted text was not found.')
+            return None
 
 def get_receiver_keys(action: str) -> dict[str, any]:
     """
