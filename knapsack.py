@@ -25,13 +25,13 @@ from math import gcd
 from pathlib import Path
 
 import click
-from icecream import ic
+# from icecream import ic
 from rich import print
 
 VERSION = "0.21"
 
 
-@click.command(epilog='If [MESSAGE] or [PATH] is provided, encryption occurs by default (--encrypt is optional). If [MESSAGE] or [PATH] is absent, decryption occurs by default (--decrypt is optional). This cryptosystem can only encrypt text containing valid UTF-8. Use double-quotes ("...") if [PATH] or [MESSAGE] includes spaces.\n\nAll encrypted messages are stored in "encoded.json". Public and private keys are stored in a json file named after the user.\n\nEXAMPLE USAGE:\n\n   knapsack.py "The boats launch at midnight." --> encrypts the message\n\n   knapsack.py (with no arguments) --> decrypts "encoded.json"')
+@click.command(epilog='If [MESSAGE] or [PATH] is provided, encryption occurs by default (--encrypt is optional). If [MESSAGE] or [PATH] is absent, decryption occurs by default (--decrypt is optional). This cryptosystem can only encrypt text containing valid UTF-8. Use double-quotes ("...") if [PATH] or [MESSAGE] includes spaces.\n\nAll encrypted messages are stored in "encoded.json". Public and private keys are stored in a json file named after the user.\n\nEXAMPLE USAGE:\n\n   knapsack.py --generate --> keys for a specified user\n\n   knapsack.py "The boats launch at midnight." --> encrypts the message\n\n   knapsack.py (with no arguments) --> decrypts "encoded.json"')
 # @click.option("-m", "--message", "msg", type=str, multiple=True, help='Message to encrypt')
 @click.argument("message", type=str, required=False)
 @click.option("-f", "--file", type=click.Path(exists=True), help='File to encrypt.')
@@ -43,7 +43,7 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
     """
     Encrypt and decrypt a [MESSAGE] or a [PATH]. [MESSAGE] can be typed on the command line with no flags or arguments, or read from a file using the --file option.
 
-    Text is encrypted for a specific user, meaning that we must have that user's public key. The encrypted text can only be decrypted using that user's private key. If a user doesn't have keys, they can generate them using the --generate option.
+    Using their private key, the sender can encrypt text intended for a specific recipient, meaning that the sender must have the recipient's public key. The encrypted text can only be decrypted by the recipient using the recipient's private key and the sender's public key. If either the sender or the recipient lacks keys, they can be generated using the --generate option.
 
     \f
     Encryption takes precendence over decryption. This means that if a message AND --decrypt are found on the command line (in any order), the message will be encrypted but "encoded.json" will not be decrypted. If both a [PATH] and a [MESSAGE] are provided, the [PATH] takes precedence and the [MESSAGE] will not be encrypted.
@@ -85,7 +85,7 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
     # If there's a message, either typed on the command line or provided in a file,
     # encrypt it. If no message was provided by either mechanism, then the user must be expecting to decrypt the contents of "encoded.json".
     if msg:
-        receivers_keys: dict[str, Any] = get_receiver_keys("encrypting")
+        receivers_keys: dict[str, any] = get_receiver_keys("encrypting")
         public_key: list[int] = receivers_keys['public_key']
         encrypted_message: str = encrypt_msg(msg, public_key)
 
@@ -107,6 +107,7 @@ def cli(message: str, file: str, decrypt: str, keys: str, generate: str) -> None
             print(
                 'Error: The file "encoded.json" containing encrypted text was not found.')
             return None
+
 
 def get_receiver_keys(action: str) -> dict[str, any]:
     """
@@ -133,9 +134,11 @@ def get_receiver_keys(action: str) -> dict[str, any]:
         receiver_name: str = input("Who will receive this encrypted message? ").lower()
     else:
         receiver_name: str = input("Who is decrypting this message: ").lower()
+
     filename: str = receiver_name + ".json"
+
     try:
-        with open(filename, 'r') as f:
+        with open(filename, 'r', encoding="utf-8") as f:
             receivers_keys = json.load(f)
     except FileNotFoundError:
         print(f"\nYou do not have {receiver_name}'s public key,\nwhich is required for encryption.")
@@ -147,11 +150,16 @@ def get_receiver_keys(action: str) -> dict[str, any]:
 # ==== KEY GENERATION ==========================================
 
 class MerkleHellmanKeys:
+    """
+    Class to hold public and private keys.
+    """
+
     def __init__(self, public_key, s, q, r) -> None:
         self.public_key = public_key
         self.s: int = s
         self.q: int = q
         self.r: int = r
+
 
 def is_coprime(a, b) -> bool:
     """
@@ -160,6 +168,7 @@ def is_coprime(a, b) -> bool:
 
     # If GCD is 1, the numbers are coprime
     return gcd(a, b) == 1
+
 
 def generate_keys() -> MerkleHellmanKeys:
     """
@@ -197,16 +206,18 @@ def generate_keys() -> MerkleHellmanKeys:
     # public_key is r * [s](i) % q
     public_key: list[int] = [(si * r) % q for si in s]
 
+    # Keys are generated for a named user. Here is where we get the user's name.
     user_keys: dict = {'public_key': public_key, "s": s, "q": q, "r": r}
     print('\nThe name you enter will be the filename for the keys.', sep='')
     filename: str = input("Whose keys are these: ").lower()
     filename += ".json"
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding="utf-8") as f:
         json.dump(user_keys, f)
 
     return
 
 # ==== END OF KEY GENERATION ===================================
+
 
 def print_keys() -> None:
     """
@@ -218,18 +229,12 @@ def print_keys() -> None:
     if user_name:
         # Read the "user_name" json file and then parse the keys that are returned.
         try:
-            with open(user_name + ".json", 'r') as f:
+            with open(user_name + ".json", 'r', encoding="utf-8") as f:
                 encryption_keys = json.load(f)
             public_key = encryption_keys['public_key']
             s: int = encryption_keys['s']
             q: int = encryption_keys['q']
             r: int = encryption_keys['r']
-
-            # pk_list: list[str] = [str(x) for x in public_key]
-            # pk_str: str = ", ".join(pk_list)
-
-            # s_list: list[str] = [str(x) for x in s]
-            # s_str: str = ", ".join(s_list)
 
             print(f'PUBLIC KEY:\n{public_key}\n\nPRIVATE KEY\ns: {s}\nq: {q}\nr: {r}', sep="")
         except FileNotFoundError:
@@ -262,7 +267,7 @@ def encrypt_msg(message: str, public_key: list[int]) -> str:
     # Step 2: All the elements –  s1,  s2,  s 3, .... sn of the sequence s are multiplied  with the number r and the modulus of the multiple is taken by dividing with the number a. Therefore, pi = r*si mod(a). This is the public_key.
 
     # Step 3: Each element of the public key (p1, p2, p3, ....  pn) is multiplied with the corresponding element of the binary sequence [msg_binary_vec]. The numbers are then added to create the encrypted message M(i).
-    sum: int = 0
+    sum_int: int = 0
     encrypted_msg_list: list[str] = []
     a: int = 0
 
@@ -271,9 +276,9 @@ def encrypt_msg(message: str, public_key: list[int]) -> str:
         z = zip(public_key, b_int)
         for (x, y) in z:
             a = x * y
-            sum += a
-        encrypted_msg_list.append(str(sum))
-        sum = 0
+            sum_int += a
+        encrypted_msg_list.append(str(sum_int))
+        sum_int = 0
 
     encrypted_message: str = " ".join(encrypted_msg_list)
 
@@ -318,7 +323,7 @@ def decrypt_msg(encoded_msg: str, s: list[int], q: int, r: int) -> str:
 
     try:
         for el in msg_list:
-            step = (el * r_inv) % q
+            step: int = (el * r_inv) % q
             while True:
                 # Find the largest number in [s] that is smaller than step.
                 second: int = max(filter(lambda x: x <= step, s))
@@ -371,6 +376,7 @@ def create_binary_string(indices) -> str:
         base_bin_list[i] = "1"
     return ''.join(base_bin_list)
 
+
 def read_encoded_msg() -> str:
     """
     Read the encrypted file ("encoded.json").
@@ -403,7 +409,7 @@ def write_coded(encrypted_message: str) -> None:
     }
 
     # Write the data to a file in JSON format. "encoded.json" will be overwritten if it already exists.
-    with open("encoded.json", "w") as file:
+    with open("encoded.json", "w", encoding="utf-8") as file:
         json.dump(these_keys, file)
 
 
