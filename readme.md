@@ -1,44 +1,51 @@
-# Knapsack Problem Solver
-
-This Python program implements a solution to the Knapsack Problem, which is a classic optimization problem in computer science and mathematics. The Knapsack Problem involves selecting a subset of items with varying weights and values, such that the total weight does not exceed a given capacity, while maximizing the total value of the selected items.
+# Merkle-Hellman Knapsack Cryptosystem
 
 ## Description
 
-The Knapsack Problem can be stated as follows: Given a set of items, each with a weight and a value, determine the items to include in a collection so that the total weight is less than or equal to a given limit and the total value is as large as possible.
+Building the **Merkle-Hellman Knapsack Cryptosystem** involves three parts:
+- Key Generation
+- Encryption
+- Decryption
 
-This program provides a solution to the Knapsack Problem using a dynamic programming approach. It takes a set of items with their respective weights and values, along with the maximum capacity of the knapsack, and returns the optimal subset of items that maximizes the total value while staying within the weight limit.
+At a high-level, in the **Merkle-Hellman Knapsack Cryptosystem**, all participants
+go through key generation once to construct both a public key and a private
+key, linked together in some mathematical way. Public keys are made publicly
+available, whereas private keys are kept under lock and key (pun intended).
+Usually, public keys will lead to some sort of encryption function, and private
+keys will lead to some sort of decryption function, and in many ways they act as
+inverses.
 
 ## Usage
+```
+Usage: knapsack.py [OPTIONS] [MESSAGE]
 
+  Encrypt and decrypt a [MESSAGE] or a [PATH]. [MESSAGE] can be typed on the command line with no flags or arguments, or read from a file using the --file option.
 
+  Using their private key, the sender can encrypt text intended for a specific recipient, meaning that the sender must have the recipient's public key. The encrypted text can only be decrypted by the recipient using the recipient's private key and the sender's public key. If either the sender or the recipient lacks keys, they can be generated using the --generate option.
 
+Options:
+  -f, --file PATH  File to encrypt.
+  -d, --decrypt    Decrypt previously encrypted
+                   message.
+  -k, --keys       Print the keys.
+  -g, --generate   Generate keys for a user.
+  --version        Show the version and exit.
+  --help           Show this message and exit.
 
-knapsack.py [OPTIONS] [ITEMS]
+If [MESSAGE] or [PATH] is provided, encryption occurs by default (--encrypt is optional). If [MESSAGE] or [PATH] is absent, decryption occurs by default (--decrypt is optional). This cryptosystem can only encrypt text containing valid UTF-8. Use double-quotes ("...") if [PATH] or [MESSAGE] includes spaces.
 
-Options: -c, --capacity INTEGER Maximum capacity of the knapsack. --version Show the version and exit. --help Show this message and exit.
+  All encrypted messages are stored in "encoded.json". Public and private keys are stored in a json file named after the user.
 
+  EXAMPLE USAGE:
 
-To use the program, follow these steps:
+     knapsack.py --generate --> keys for a specified user
 
-1. Provide the list of items as command-line arguments in the format `weight:value`. For example:
+     knapsack.py "The boats launch at midnight." --> encrypts the message
 
-
-
-
-knapsack.py 5:10 4:8 3:6 2:4 --capacity 10
-
-
-This represents four items with weights 5, 4, 3, and 2, and values 10, 8, 6, and 4, respectively. The maximum capacity of the knapsack is set to 10.
-
-2. The program will output the optimal subset of items that maximizes the total value while staying within the weight limit.
-
-## Notes
-
-- The program assumes that the input items are provided in the correct format (`weight:value`).
-- If no items are provided, the program will exit with an error.
-- If the `--capacity` option is not provided, the program will prompt the user to enter the maximum capacity.
-- The program uses a dynamic programming approach to solve the Knapsack Problem efficiently.
+     knapsack.py (with no arguments) --> decrypts "encoded.json"
+```
 
 ## Dependencies
 
 - [click](https://click.palletsprojects.com/en/8.1.x/) (for command-line interface)
+- [rich](https://pypi.org/project/rich/) (for pretty printing)
