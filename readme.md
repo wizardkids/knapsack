@@ -56,6 +56,9 @@ text containing valid UTF-8. Use double-quotes ("...") if [PATH] or
      knapsack.py (with no arguments) --> decrypts "encoded.json"
 ```
 
+## NOTES
+This program simply demonstrates how the Merkle-Hellman Knapsack Cryptosystem works. It was not designed with security in mind, since keys are stored in plain text, meaning that the sender has access to the recipient's public and private keys. In "real life", the sender would not have the recipient's private keys.
+
 ## Dependencies
 
 - [click](https://click.palletsprojects.com/en/8.1.x/) (for command-line interface)
